@@ -35,6 +35,31 @@ export const generateVideoIdeas = async (questions: string[], bible: BrandBible)
   return JSON.parse(response.text || "[]");
 };
 
+export const generateGlobalInsights = async (allComments: string[]): Promise<{ topics: string[], summary: string }> => {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Analiza este conjunto de comentarios de múltiples videos de TikTok:
+    ${allComments.slice(0, 50).join("\n")}
+    
+    Dime:
+    1. 5 temas principales de los que habla la gente (topics).
+    2. Un resumen ejecutivo de la audiencia (summary).`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          topics: { type: Type.ARRAY, items: { type: Type.STRING } },
+          summary: { type: Type.STRING },
+        },
+        required: ["topics", "summary"],
+      },
+    },
+  });
+
+  return JSON.parse(response.text || "{}");
+};
+
 export const analyzeComments = async (comments: string[]): Promise<Comment[]> => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",

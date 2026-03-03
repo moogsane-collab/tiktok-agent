@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Video, BrandBible, HookAnalysis, CreativeBrief, Comment, ContentIdea } from './types';
 import * as gemini from './services/geminiService';
 
@@ -195,7 +196,7 @@ export default function App() {
             {view === 'analisis' && <AnalisisView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
             {view === 'bible' && <BibleView bible={bible} />}
             {view === 'briefs' && <BriefsView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
-            {view === 'comentarios' && <CommentsView video={selectedVideo} bible={bible} />}
+            {view === 'comentarios' && <CommentsView video={selectedVideo} videos={videos} bible={bible} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -380,63 +381,138 @@ function AnalisisView({ videos, loading, onSelectVideo }: { videos: Video[], loa
 }
 
 function BibleView({ bible }: { bible: BrandBible | null }) {
+  const [activeTab, setActiveTab] = useState<'identidad' | 'avatar' | 'tono' | 'pilares'>('identidad');
+
   if (!bible) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-tiktok-red" size={48} /></div>;
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Identidad Central</h2>
-          <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-tiktok-red/5 blur-3xl rounded-full -mr-16 -mt-16" />
-            <h3 className="text-4xl font-bold mb-2">{bible.name}</h3>
-            <p className="text-tiktok-cyan font-mono text-sm italic">"{bible.tagline}"</p>
-            <div className="mt-6 pt-6 border-t border-cyber-border">
-              <p className="text-muted-foreground text-sm leading-relaxed">{bible.mission}</p>
-            </div>
-          </div>
-        </section>
+  const tabs = [
+    { id: 'identidad', label: 'Identidad', icon: <BookOpen size={16} /> },
+    { id: 'avatar', label: 'Avatar', icon: <Users size={16} /> },
+    { id: 'tono', label: 'Tono', icon: <Zap size={16} /> },
+    { id: 'pilares', label: 'Pilares', icon: <BarChart3 size={16} /> },
+  ];
 
-        <section>
-          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Tono de Voz</h2>
-          <div className="flex flex-wrap gap-3">
-            {bible.tone.map(t => (
-              <div key={t} className="bg-cyber-card border border-cyber-border px-6 py-3 rounded-xl font-bold text-sm hover:border-tiktok-cyan transition-colors cursor-default">
-                {t}
-              </div>
-            ))}
-          </div>
-        </section>
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap gap-2 p-1 bg-cyber-dark/50 border border-cyber-border rounded-xl w-fit">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-mono text-xs uppercase tracking-widest transition-all ${
+              activeTab === tab.id 
+                ? 'bg-tiktok-red text-white shadow-lg shadow-tiktok-red/20' 
+                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Avatar del Cliente</h2>
-          <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-tiktok-red to-tiktok-cyan p-0.5">
-                <div className="w-full h-full rounded-full bg-cyber-card flex items-center justify-center">
-                  <Users size={20} className="text-tiktok-cyan" />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="min-h-[400px]"
+        >
+          {activeTab === 'identidad' && (
+            <div className="bg-cyber-card border border-cyber-border rounded-2xl p-10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-tiktok-red/5 blur-[100px] rounded-full -mr-32 -mt-32" />
+              <div className="relative z-10">
+                <div className="text-tiktok-red font-mono text-[10px] uppercase tracking-[0.4em] mb-4">Core Identity</div>
+                <h3 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{bible.name}</h3>
+                <p className="text-tiktok-cyan font-mono text-lg italic mb-8">"{bible.tagline}"</p>
+                <div className="pt-8 border-t border-cyber-border/50">
+                  <h4 className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-4">Nuestra Misión</h4>
+                  <p className="text-xl text-white/90 leading-relaxed font-light">{bible.mission}</p>
                 </div>
               </div>
-              <div className="font-bold">Perfil Objetivo</div>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">{bible.avatar}</p>
-          </div>
-        </section>
+          )}
 
-        <section>
-          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Pilares de Contenido</h2>
-          <div className="space-y-3">
-            {bible.pillars.map((p, i) => (
-              <div key={i} className="bg-cyber-card border border-cyber-border p-4 rounded-xl flex items-center gap-4 group hover:border-tiktok-red transition-all">
-                <div className="text-tiktok-red font-mono font-bold">0{i+1}</div>
-                <div className="text-sm font-medium">{p}</div>
+          {activeTab === 'avatar' && (
+            <div className="bg-cyber-card border border-cyber-border rounded-2xl p-10">
+              <div className="flex items-center gap-6 mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-tiktok-red to-tiktok-cyan p-0.5">
+                  <div className="w-full h-full rounded-2xl bg-cyber-card flex items-center justify-center">
+                    <Users size={32} className="text-tiktok-cyan" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-tiktok-red font-mono text-[10px] uppercase tracking-[0.4em] mb-1">Target Audience</div>
+                  <h3 className="text-3xl font-bold">Perfil del Avatar</h3>
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
+              <div className="bg-cyber-dark/50 border border-cyber-border rounded-xl p-8">
+                <p className="text-lg text-white/80 leading-relaxed italic">
+                  {bible.avatar}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'tono' && (
+            <div className="space-y-8">
+              <div className="bg-cyber-card border border-cyber-border rounded-2xl p-10">
+                <div className="text-tiktok-red font-mono text-[10px] uppercase tracking-[0.4em] mb-6">Brand Voice</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {bible.tone.map((t, i) => (
+                    <motion.div 
+                      key={t}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="bg-cyber-dark border border-cyber-border px-8 py-6 rounded-2xl font-bold text-lg text-center hover:border-tiktok-cyan hover:shadow-lg hover:shadow-tiktok-cyan/5 transition-all cursor-default group"
+                    >
+                      <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent group-hover:from-tiktok-cyan group-hover:to-white transition-all">
+                        {t}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8">
+                <div className="text-tiktok-red font-mono text-[10px] uppercase tracking-[0.4em] mb-4">Hashtags de Marca</div>
+                <div className="flex flex-wrap gap-3">
+                  {bible.hashtags.map(h => (
+                    <span key={h} className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm font-mono text-tiktok-cyan">
+                      #{h}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pilares' && (
+            <div className="bg-cyber-card border border-cyber-border rounded-2xl p-10">
+              <div className="text-tiktok-red font-mono text-[10px] uppercase tracking-[0.4em] mb-8">Content Strategy</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {bible.pillars.map((p, i) => (
+                  <motion.div 
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-cyber-dark border border-cyber-border p-6 rounded-2xl flex items-start gap-6 group hover:border-tiktok-red transition-all"
+                  >
+                    <div className="text-4xl font-mono font-black text-tiktok-red/20 group-hover:text-tiktok-red/40 transition-colors">
+                      0{i+1}
+                    </div>
+                    <div className="text-lg font-medium pt-2 leading-snug">{p}</div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -546,23 +622,88 @@ function BriefsView({ videos, loading, onSelectVideo }: { videos: Video[], loadi
   );
 }
 
-function CommentsView({ video, bible }: { video: Video | null, bible: BrandBible | null }) {
+function CommentsView({ video, videos, bible }: { video: Video | null, videos: Video[], bible: BrandBible | null }) {
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [generatingIdeas, setGeneratingIdeas] = useState(false);
+  const [globalInsights, setGlobalInsights] = useState<{ topics: string[], summary: string } | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
-  if (!video) return (
-    <div className="flex flex-col items-center justify-center py-20 opacity-30">
-      <MessageSquare size={64} className="mb-4" />
-      <p className="text-xl font-mono">Selecciona un video para ver sus comentarios.</p>
-    </div>
-  );
+  useEffect(() => {
+    if (!video && videos.length > 0 && !globalInsights) {
+      const fetchGlobal = async () => {
+        setLoadingInsights(true);
+        try {
+          const allComments = videos.flatMap(v => v.comments_data.map(c => c.text));
+          const res = await gemini.generateGlobalInsights(allComments);
+          setGlobalInsights(res);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoadingInsights(false);
+        }
+      };
+      fetchGlobal();
+    }
+  }, [video, videos, globalInsights]);
+
+  if (!video) {
+    return (
+      <div className="space-y-8">
+        <header className="bg-gradient-to-r from-tiktok-red/20 to-tiktok-cyan/20 border border-cyber-border rounded-2xl p-8">
+          <h2 className="text-2xl font-bold mb-2 flex items-center gap-3">
+            <Users className="text-tiktok-red" /> Inteligencia de Audiencia Global
+          </h2>
+          <p className="text-muted-foreground">Análisis agregado de todos los videos scrapeados para detectar tendencias macro.</p>
+        </header>
+
+        {loadingInsights ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-tiktok-red" size={48} /></div>
+        ) : globalInsights ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8">
+              <h3 className="text-tiktok-cyan font-mono text-xs uppercase tracking-widest mb-6">Temas Recurrentes</h3>
+              <div className="space-y-4">
+                {globalInsights.topics.map((topic, i) => (
+                  <div key={i} className="flex items-center gap-4 bg-cyber-dark p-4 rounded-xl border border-cyber-border group hover:border-tiktok-cyan transition-all">
+                    <div className="w-8 h-8 rounded-full bg-tiktok-cyan/10 flex items-center justify-center text-tiktok-cyan font-bold text-xs">{i+1}</div>
+                    <div className="text-sm font-medium">{topic}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8">
+              <h3 className="text-tiktok-red font-mono text-xs uppercase tracking-widest mb-6">Resumen de Audiencia</h3>
+              <p className="text-white/80 leading-relaxed italic text-sm">
+                {globalInsights.summary}
+              </p>
+              <div className="mt-8 pt-8 border-t border-cyber-border grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-tiktok-cyan">{videos.length}</div>
+                  <div className="text-[10px] font-mono text-muted-foreground uppercase">Videos Analizados</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-tiktok-red">{videos.reduce((acc, v) => acc + v.comments, 0)}</div>
+                  <div className="text-[10px] font-mono text-muted-foreground uppercase">Comentarios Totales</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 opacity-30">
+            <MessageSquare size={64} className="mb-4" />
+            <p className="text-xl font-mono">Sin datos globales. Ejecuta el agente primero.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const questions = video.comments_data.filter(c => c.isQuestion);
-  const sentiments = {
-    positive: video.comments_data.filter(c => c.sentiment === 'positive').length,
-    neutral: video.comments_data.filter(c => c.sentiment === 'neutral').length,
-    negative: video.comments_data.filter(c => c.sentiment === 'negative').length,
-  };
+  const sentiments = [
+    { name: 'Positivo', value: video.comments_data.filter(c => c.sentiment === 'positive').length, color: '#25f4ee' },
+    { name: 'Neutral', value: video.comments_data.filter(c => c.sentiment === 'neutral').length, color: '#ffffff60' },
+    { name: 'Negativo', value: video.comments_data.filter(c => c.sentiment === 'negative').length, color: '#fe2c55' },
+  ].filter(s => s.value > 0);
 
   const generateIdeas = async () => {
     if (!bible || questions.length === 0) return;
@@ -628,11 +769,45 @@ function CommentsView({ video, bible }: { video: Video | null, bible: BrandBible
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Análisis de Sentimiento</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <SentimentCard label="Positivo" count={sentiments.positive} color="text-tiktok-cyan" />
-            <SentimentCard label="Neutral" count={sentiments.neutral} color="text-white/60" />
-            <SentimentCard label="Negativo" count={sentiments.negative} color="text-tiktok-red" />
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em]">Análisis de Sentimiento</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-cyber-card border border-cyber-border p-6 rounded-2xl h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={sentiments}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {sentiments.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111122', border: '1px solid #1a1a35', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {sentiments.map((s) => (
+                <div key={s.name} className="bg-cyber-card border border-cyber-border p-4 rounded-xl flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                    <span className="text-sm font-medium">{s.name}</span>
+                  </div>
+                  <span className="font-bold">{s.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
           
           <div className="mt-8 space-y-3">
