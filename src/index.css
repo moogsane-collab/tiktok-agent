@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-tiktok-red: #fe2c55;
+  --color-tiktok-cyan: #25f4ee;
+  --color-cyber-black: #080810;
+  --color-cyber-dark: #0d0d1a;
+  --color-cyber-card: #111122;
+  --color-cyber-border: #1a1a35;
+}
+
+@layer base {
+  body {
+    @apply bg-cyber-black text-white font-sans antialiased;
+  }
+  
+  /* Scanline effect */
+  body::before {
+    content: '';
+    @apply fixed inset-0 pointer-events-none z-50;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+  }
+}
