@@ -16,14 +16,15 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Video, BrandBible, HookAnalysis, CreativeBrief } from './types';
+import { Video, BrandBible, HookAnalysis, CreativeBrief, Comment, ContentIdea } from './types';
 import * as gemini from './services/geminiService';
 
 export default function App() {
-  const [view, setView] = useState<'scraper' | 'analisis' | 'bible' | 'briefs'>('scraper');
+  const [view, setView] = useState<'scraper' | 'analisis' | 'bible' | 'briefs' | 'comentarios'>('scraper');
   const [keyword, setKeyword] = useState('disciplina masculina');
   const [loading, setLoading] = useState(false);
   const [videos, setVideos] = useState<Video[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [bible, setBible] = useState<BrandBible | null>(null);
   const [status, setStatus] = useState('');
 
@@ -61,11 +62,16 @@ export default function App() {
 
       setStatus('Generando Briefs Creativos...');
       const finalVideos = await Promise.all(analyzedVideos.map(async (v) => {
+        // Analyze comments for each video
+        const commentTexts = v.comments_data.map(c => c.text);
+        const analyzedComments = await gemini.analyzeComments(commentTexts);
+        const videoWithComments = { ...v, comments_data: analyzedComments };
+
         if (bible) {
-          const brief = await gemini.generateBrief(v, bible);
-          return { ...v, brief };
+          const brief = await gemini.generateBrief(videoWithComments, bible);
+          return { ...videoWithComments, brief };
         }
-        return v;
+        return videoWithComments;
       }));
 
       setVideos(finalVideos);
@@ -116,6 +122,12 @@ export default function App() {
             onClick={() => setView('briefs')} 
             icon={<FileText size={18} />} 
             label="Briefs IA" 
+          />
+          <NavItem 
+            active={view === 'comentarios'} 
+            onClick={() => setView('comentarios')} 
+            icon={<MessageSquare size={18} />} 
+            label="Comentarios" 
           />
         </nav>
 
@@ -179,10 +191,11 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
           >
-            {view === 'scraper' && <ScraperView videos={videos} />}
-            {view === 'analisis' && <AnalisisView videos={videos} />}
+            {view === 'scraper' && <ScraperView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
+            {view === 'analisis' && <AnalisisView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
             {view === 'bible' && <BibleView bible={bible} />}
-            {view === 'briefs' && <BriefsView videos={videos} />}
+            {view === 'briefs' && <BriefsView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
+            {view === 'comentarios' && <CommentsView video={selectedVideo} bible={bible} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -206,7 +219,17 @@ function NavItem({ active, onClick, icon, label }: { active: boolean, onClick: (
   );
 }
 
-function ScraperView({ videos }: { videos: Video[] }) {
+function ScraperView({ videos, loading, onSelectVideo }: { videos: Video[], loading: boolean, onSelectVideo: (v: Video) => void }) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <VideoSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
+
   if (videos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 opacity-30">
@@ -222,7 +245,8 @@ function ScraperView({ videos }: { videos: Video[] }) {
         <motion.div 
           key={video.id}
           whileHover={{ y: -5 }}
-          className="bg-cyber-card border border-cyber-border rounded-2xl overflow-hidden group transition-all hover:border-tiktok-red/50"
+          onClick={() => onSelectVideo(video)}
+          className="bg-cyber-card border border-cyber-border rounded-2xl overflow-hidden group transition-all hover:border-tiktok-red/50 cursor-pointer"
         >
           <div className="relative aspect-[4/5] bg-cyber-dark overflow-hidden">
             <img src={video.thumbnail} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
@@ -267,8 +291,49 @@ function ScraperView({ videos }: { videos: Video[] }) {
   );
 }
 
-function AnalisisView({ videos }: { videos: Video[] }) {
-  if (videos.length === 0) return <ScraperView videos={[]} />;
+function VideoSkeleton() {
+  return (
+    <div className="bg-cyber-card border border-cyber-border rounded-2xl overflow-hidden relative">
+      <div className="absolute inset-0 animate-shimmer z-10 pointer-events-none" />
+      <div className="relative aspect-[4/5] bg-cyber-dark/50 flex flex-col justify-end p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-full bg-cyber-dark" />
+          <div className="h-2 bg-cyber-dark rounded w-16" />
+        </div>
+        <div className="h-3 bg-cyber-dark rounded w-full mb-1" />
+        <div className="h-3 bg-cyber-dark rounded w-2/3" />
+      </div>
+      <div className="p-4 grid grid-cols-3 gap-2 border-t border-cyber-border">
+        <div className="h-8 bg-cyber-dark rounded" />
+        <div className="h-8 bg-cyber-dark rounded" />
+        <div className="h-8 bg-cyber-dark rounded" />
+      </div>
+    </div>
+  );
+}
+
+function AnalisisView({ videos, loading, onSelectVideo }: { videos: Video[], loading: boolean, onSelectVideo: (v: Video) => void }) {
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-cyber-card border border-cyber-border rounded-2xl p-6 flex gap-6 animate-pulse">
+            <div className="w-48 aspect-[4/5] rounded-xl bg-cyber-dark/50 flex-shrink-0" />
+            <div className="flex-1 space-y-4">
+              <div className="h-8 bg-cyber-dark rounded w-1/2" />
+              <div className="grid grid-cols-2 gap-6">
+                <div className="h-16 bg-cyber-dark rounded" />
+                <div className="h-16 bg-cyber-dark rounded" />
+              </div>
+              <div className="h-20 bg-cyber-dark rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (videos.length === 0) return <ScraperView videos={[]} loading={false} onSelectVideo={onSelectVideo} />;
 
   return (
     <div className="space-y-6">
@@ -376,9 +441,36 @@ function BibleView({ bible }: { bible: BrandBible | null }) {
   );
 }
 
-function BriefsView({ videos }: { videos: Video[] }) {
+function BriefsView({ videos, loading, onSelectVideo }: { videos: Video[], loading: boolean, onSelectVideo: (v: Video) => void }) {
   const videosWithBriefs = videos.filter(v => v.brief);
-  if (videosWithBriefs.length === 0) return <AnalisisView videos={videos} />;
+  
+  if (loading) {
+    return (
+      <div className="space-y-12">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="bg-cyber-card border border-cyber-border rounded-2xl overflow-hidden animate-pulse">
+            <div className="h-20 bg-cyber-dark/50 border-b border-cyber-border" />
+            <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <div className="h-32 bg-cyber-dark/50 rounded-2xl" />
+                <div className="h-48 bg-cyber-dark/50 rounded-2xl" />
+              </div>
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-24 bg-cyber-dark/50 rounded-xl" />
+                  <div className="h-24 bg-cyber-dark/50 rounded-xl" />
+                </div>
+                <div className="h-16 bg-cyber-dark/50 rounded-xl" />
+                <div className="h-12 bg-cyber-dark/50 rounded-full" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (videosWithBriefs.length === 0) return <AnalisisView videos={videos} loading={false} onSelectVideo={onSelectVideo} />;
 
   return (
     <div className="space-y-12">
@@ -450,6 +542,142 @@ function BriefsView({ videos }: { videos: Video[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function CommentsView({ video, bible }: { video: Video | null, bible: BrandBible | null }) {
+  const [ideas, setIdeas] = useState<ContentIdea[]>([]);
+  const [generatingIdeas, setGeneratingIdeas] = useState(false);
+
+  if (!video) return (
+    <div className="flex flex-col items-center justify-center py-20 opacity-30">
+      <MessageSquare size={64} className="mb-4" />
+      <p className="text-xl font-mono">Selecciona un video para ver sus comentarios.</p>
+    </div>
+  );
+
+  const questions = video.comments_data.filter(c => c.isQuestion);
+  const sentiments = {
+    positive: video.comments_data.filter(c => c.sentiment === 'positive').length,
+    neutral: video.comments_data.filter(c => c.sentiment === 'neutral').length,
+    negative: video.comments_data.filter(c => c.sentiment === 'negative').length,
+  };
+
+  const generateIdeas = async () => {
+    if (!bible || questions.length === 0) return;
+    setGeneratingIdeas(true);
+    try {
+      const qTexts = questions.map(q => q.text);
+      const res = await gemini.generateVideoIdeas(qTexts, bible);
+      setIdeas(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGeneratingIdeas(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-cyber-card border border-cyber-border rounded-2xl p-6 flex gap-6">
+        <div className="w-32 aspect-[4/5] rounded-xl overflow-hidden flex-shrink-0 border border-cyber-border">
+          <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl font-bold">"{video.hook}"</h3>
+          <p className="text-muted-foreground text-sm mt-2">{video.account}</p>
+          <div className="flex justify-between items-end mt-4">
+            <div className="bg-cyber-dark px-4 py-2 rounded-lg border border-cyber-border">
+              <div className="text-[10px] font-mono text-muted-foreground uppercase">Comentarios</div>
+              <div className="font-bold">{video.comments}</div>
+            </div>
+            
+            <button 
+              onClick={generateIdeas}
+              disabled={generatingIdeas || questions.length === 0}
+              className="bg-tiktok-cyan hover:bg-tiktok-cyan/90 text-cyber-black font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 text-sm"
+            >
+              {generatingIdeas ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
+              GENERAR IDEAS DE CONTENIDO
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {ideas.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="bg-gradient-to-r from-tiktok-cyan/10 to-transparent border border-tiktok-cyan/30 rounded-2xl p-6"
+        >
+          <h2 className="text-tiktok-cyan font-mono text-xs uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <Zap size={14} /> Ideas de Contenido Sugeridas
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {ideas.map((idea, i) => (
+              <div key={i} className="bg-cyber-black/40 border border-tiktok-cyan/20 p-4 rounded-xl">
+                <div className="font-bold text-sm mb-2 text-tiktok-cyan">{idea.title}</div>
+                <div className="text-xs italic text-white/80 mb-3 leading-relaxed">"{idea.hook}"</div>
+                <div className="text-[10px] text-muted-foreground leading-relaxed">{idea.reason}</div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Análisis de Sentimiento</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <SentimentCard label="Positivo" count={sentiments.positive} color="text-tiktok-cyan" />
+            <SentimentCard label="Neutral" count={sentiments.neutral} color="text-white/60" />
+            <SentimentCard label="Negativo" count={sentiments.negative} color="text-tiktok-red" />
+          </div>
+          
+          <div className="mt-8 space-y-3">
+            <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Comentarios Recientes</h2>
+            {video.comments_data.map((comment, i) => (
+              <div key={i} className="bg-cyber-card border border-cyber-border p-4 rounded-xl">
+                <div className="flex justify-between items-start mb-2">
+                  <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded ${
+                    comment.sentiment === 'positive' ? 'bg-tiktok-cyan/20 text-tiktok-cyan' :
+                    comment.sentiment === 'negative' ? 'bg-tiktok-red/20 text-tiktok-red' :
+                    'bg-white/10 text-white/60'
+                  }`}>
+                    {comment.sentiment}
+                  </span>
+                  {comment.isQuestion && <span className="text-[10px] font-mono text-tiktok-cyan flex items-center gap-1"><Zap size={10} /> Pregunta</span>}
+                </div>
+                <p className="text-sm">{comment.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h2 className="text-tiktok-red font-mono text-xs uppercase tracking-[0.3em] mb-4">Preguntas Clave</h2>
+          <div className="space-y-3">
+            {questions.length > 0 ? questions.map((q, i) => (
+              <div key={i} className="bg-cyber-card border border-cyber-border p-4 rounded-xl border-l-4 border-l-tiktok-cyan">
+                <p className="text-sm font-medium">"{q.text}"</p>
+                <div className="mt-2 text-[10px] font-mono text-tiktok-cyan uppercase">Oportunidad de Contenido</div>
+              </div>
+            )) : (
+              <div className="text-muted-foreground text-sm italic">No se detectaron preguntas relevantes.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SentimentCard({ label, count, color }: { label: string, count: number, color: string }) {
+  return (
+    <div className="bg-cyber-card border border-cyber-border p-4 rounded-xl text-center">
+      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">{label}</div>
+      <div className={`text-2xl font-bold ${color}`}>{count}</div>
     </div>
   );
 }

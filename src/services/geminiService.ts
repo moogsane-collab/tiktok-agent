@@ -1,7 +1,70 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Video, BrandBible, HookAnalysis, CreativeBrief } from "../types";
+import { Video, BrandBible, HookAnalysis, CreativeBrief, Comment, ContentIdea } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+export const generateVideoIdeas = async (questions: string[], bible: BrandBible): Promise<ContentIdea[]> => {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Genera 3 ideas de videos para TikTok basadas en estas preguntas de la audiencia:
+    Preguntas:
+    ${questions.join("\n")}
+    
+    Usa el tono de esta Brand Bible:
+    Nombre: ${bible.name}
+    Tono: ${bible.tone.join(", ")}
+    
+    Para cada idea, dame un título, un hook sugerido y la razón de por qué funcionará.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            hook: { type: Type.STRING },
+            reason: { type: Type.STRING },
+          },
+          required: ["title", "hook", "reason"],
+        },
+      },
+    },
+  });
+
+  return JSON.parse(response.text || "[]");
+};
+
+export const analyzeComments = async (comments: string[]): Promise<Comment[]> => {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Analiza los siguientes comentarios de un video de TikTok. 
+    Para cada comentario, determina:
+    1. Sentimiento (positive, neutral, negative).
+    2. Si es una pregunta (true/false).
+    
+    Comentarios:
+    ${comments.join("\n")}
+    `,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            text: { type: Type.STRING },
+            sentiment: { type: Type.STRING, enum: ["positive", "neutral", "negative"] },
+            isQuestion: { type: Type.BOOLEAN },
+          },
+          required: ["text", "sentiment", "isQuestion"],
+        },
+      },
+    },
+  });
+
+  return JSON.parse(response.text || "[]");
+};
 
 export const analyzeHook = async (video: Video): Promise<HookAnalysis> => {
   const response = await ai.models.generateContent({

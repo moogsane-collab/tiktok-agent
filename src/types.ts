@@ -47,3 +47,9 @@ export interface BrandBible {
   pillars: string[];
   hashtags: string[];
 }
+
+export interface ContentIdea {
+  title: string;
+  hook: string;
+  reason: string;
+}
