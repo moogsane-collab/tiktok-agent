@@ -1,5 +1,5 @@
 {
-  "name": "TikTok Agent AI",
-  "description": "Agente inteligente para scraping, análisis de hooks con Gemini y generación de briefs creativos para TikTok.",
+  "name": "TikkyAI",
+  "description": "The ultimate TikTok OSINT & Content Intelligence platform. Analyze trends, scrape hooks, and generate creative briefs with Gemini AI.",
   "requestFramePermissions": []
 }

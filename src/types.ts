@@ -36,6 +36,8 @@ export interface CreativeBrief {
   audio: string;
   cta: string;
   hashtags: string[];
+  seoKeywords: string[];
+  salesFunnelStage: 'Awareness' | 'Consideration' | 'Conversion';
 }
 
 export interface BrandBible {
@@ -52,4 +54,14 @@ export interface ContentIdea {
   title: string;
   hook: string;
   reason: string;
+}
+
+export interface OSINTResult {
+  title: string;
+  url: string;
+  snippet: string;
+  source: string;
+  views?: string;
+  engagement?: string;
+  isViral?: boolean;
 }

@@ -17,17 +17,21 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Video, BrandBible, HookAnalysis, CreativeBrief, Comment, ContentIdea } from './types';
+import { Video, BrandBible, HookAnalysis, CreativeBrief, Comment, ContentIdea, OSINTResult } from './types';
 import * as gemini from './services/geminiService';
 
 export default function App() {
-  const [view, setView] = useState<'scraper' | 'analisis' | 'bible' | 'briefs' | 'comentarios'>('scraper');
+  const [view, setView] = useState<'scraper' | 'analisis' | 'bible' | 'briefs' | 'comentarios' | 'osint'>('scraper');
   const [keyword, setKeyword] = useState('disciplina masculina');
   const [loading, setLoading] = useState(false);
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [bible, setBible] = useState<BrandBible | null>(null);
   const [status, setStatus] = useState('');
+  
+  const [osintQuery, setOsintQuery] = useState('');
+  const [osintResults, setOsintResults] = useState<OSINTResult[]>([]);
+  const [osintLoading, setOsintLoading] = useState(false);
 
   // Initial Brand Bible
   useEffect(() => {
@@ -90,12 +94,12 @@ export default function App() {
     <div className="flex min-h-screen bg-cyber-black text-white">
       {/* Sidebar */}
       <aside className="w-64 bg-cyber-dark border-r border-cyber-border flex flex-col fixed h-full z-20">
-        <div className="p-6 border-bottom border-cyber-border">
-          <div className="text-2xl font-bold bg-gradient-to-r from-tiktok-red to-tiktok-cyan bg-clip-text text-transparent italic">
-            TT_AGENT_v1
+        <div className="p-6 border-b border-cyber-border">
+          <div className="text-3xl font-black bg-gradient-to-r from-tiktok-cyan via-white to-tiktok-red bg-clip-text text-transparent italic tracking-tighter animate-pulse">
+            TikkyAI
           </div>
-          <div className="text-[10px] text-muted-foreground font-mono mt-1 tracking-widest uppercase opacity-50">
-            Intelligence v2.0
+          <div className="text-[9px] text-tiktok-cyan font-mono mt-1 tracking-[0.4em] uppercase opacity-70">
+            Content Intelligence
           </div>
         </div>
 
@@ -130,6 +134,12 @@ export default function App() {
             icon={<MessageSquare size={18} />} 
             label="Comentarios" 
           />
+          <NavItem 
+            active={view === 'osint'} 
+            onClick={() => setView('osint')} 
+            icon={<TrendingUp size={18} />} 
+            label="OSINT Search" 
+          />
         </nav>
 
         <div className="p-6 border-t border-cyber-border">
@@ -148,39 +158,23 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-64 p-8 relative">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight uppercase font-mono">
-              {view === 'scraper' && 'Dashboard de Scraping'}
-              {view === 'analisis' && 'Análisis de Viralidad'}
-              {view === 'bible' && 'Manual de Marca'}
-              {view === 'briefs' && 'Briefs de Producción'}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {status || 'Listo para ejecutar el agente inteligente.'}
-            </p>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="relative">
-              <input 
-                type="text" 
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="Keyword (ej. Estoicismo)"
-                className="bg-cyber-card border border-cyber-border rounded-lg px-4 py-2 pl-10 text-sm focus:outline-none focus:border-tiktok-red transition-colors w-64"
-              />
-              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+      <main className="flex-1 ml-64 p-12 relative">
+        <header className="flex justify-between items-center mb-16 relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-2 h-2 rounded-full bg-tiktok-cyan animate-pulse" />
+              <span className="text-[10px] font-mono text-tiktok-cyan uppercase tracking-[0.4em]">System Operational</span>
             </div>
-            <button 
-              onClick={runAgent}
-              disabled={loading}
-              className="bg-tiktok-red hover:bg-tiktok-red/90 text-white font-bold py-2 px-6 rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-tiktok-red/20 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
-              EJECUTAR AGENTE
-            </button>
+            <h1 className="text-4xl font-black tracking-tighter uppercase font-mono">
+              {view === 'scraper' && 'Intelligence Dashboard'}
+              {view === 'analisis' && 'Viral Hook Analysis'}
+              {view === 'bible' && 'Brand Bible v1.0'}
+              {view === 'briefs' && 'Creative Briefs'}
+              {view === 'osint' && 'OSINT Research'}
+            </h1>
+            <p className="text-muted-foreground text-sm font-light">
+              {status || 'TikkyAI está listo para procesar tu próximo éxito viral.'}
+            </p>
           </div>
         </header>
 
@@ -192,14 +186,272 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
           >
-            {view === 'scraper' && <ScraperView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
+            {view === 'scraper' && (
+              videos.length === 0 && !loading ? (
+                <LandingHero 
+                  keyword={keyword} 
+                  setKeyword={setKeyword} 
+                  onRun={runAgent} 
+                  loading={loading} 
+                />
+              ) : (
+                <div className="space-y-12">
+                  {/* Compact Search for Dashboard */}
+                  <div className="max-w-2xl">
+                    <div className="relative group">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-tiktok-cyan to-tiktok-red rounded-xl blur opacity-10 group-hover:opacity-20 transition" />
+                      <div className="relative flex items-center bg-cyber-card border border-white/5 rounded-xl p-1.5">
+                        <input 
+                          type="text" 
+                          value={keyword}
+                          onChange={(e) => setKeyword(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && runAgent()}
+                          placeholder="Nueva investigación..."
+                          className="flex-1 bg-transparent border-none px-4 py-2 text-sm focus:outline-none placeholder:text-white/20"
+                        />
+                        <button 
+                          onClick={runAgent}
+                          disabled={loading}
+                          className="bg-white text-cyber-black font-bold px-4 py-2 rounded-lg text-xs hover:bg-white/90 transition-all flex items-center gap-2"
+                        >
+                          {loading ? <Loader2 className="animate-spin" size={14} /> : <Search size={14} />}
+                          BUSCAR
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <ScraperView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />
+                </div>
+              )
+            )}
             {view === 'analisis' && <AnalisisView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
             {view === 'bible' && <BibleView bible={bible} />}
             {view === 'briefs' && <BriefsView videos={videos} loading={loading} onSelectVideo={(v) => { setSelectedVideo(v); setView('comentarios'); }} />}
             {view === 'comentarios' && <CommentsView video={selectedVideo} videos={videos} bible={bible} />}
+            {view === 'osint' && (
+              <OSINTView 
+                query={osintQuery} 
+                setQuery={setOsintQuery} 
+                results={osintResults} 
+                loading={osintLoading} 
+                onSearch={async () => {
+                  if (!osintQuery) return;
+                  setOsintLoading(true);
+                  try {
+                    const res = await gemini.performOSINTSearch(osintQuery);
+                    setOsintResults(res);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setOsintLoading(false);
+                  }
+                }} 
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
+    </div>
+  );
+}
+
+function OSINTView({ query, setQuery, results, loading, onSearch }: { 
+  query: string, 
+  setQuery: (q: string) => void, 
+  results: OSINTResult[], 
+  loading: boolean,
+  onSearch: () => void 
+}) {
+  return (
+    <div className="space-y-8">
+      <div className="bg-cyber-card border border-cyber-border rounded-2xl p-8">
+        <h2 className="text-tiktok-cyan font-mono text-xs uppercase tracking-[0.3em] mb-6">Investigación de Mercado Profunda</h2>
+        <div className="flex gap-4">
+          <input 
+            type="text" 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+            placeholder="Ej: Tendencias de biohacking en Reddit 2024"
+            className="flex-1 bg-cyber-dark border border-cyber-border rounded-xl px-6 py-4 focus:outline-none focus:border-tiktok-cyan transition-all"
+          />
+          <button 
+            onClick={onSearch}
+            disabled={loading}
+            className="bg-tiktok-cyan text-cyber-black font-bold px-8 py-4 rounded-xl flex items-center gap-2 hover:bg-tiktok-cyan/90 transition-all disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
+            INVESTIGAR
+          </button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-4 font-mono uppercase tracking-widest">
+          Buscando en TikTok, Reddit, Foros y Redes Sociales...
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="animate-spin text-tiktok-cyan mb-4" size={48} />
+            <p className="text-muted-foreground font-mono animate-pulse">Escaneando la red en busca de resultados reales...</p>
+          </div>
+        ) : results.length > 0 ? (
+          results.map((result, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-cyber-card border border-cyber-border rounded-2xl p-6 hover:border-tiktok-cyan/50 transition-all group"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="text-[10px] font-mono text-tiktok-cyan uppercase tracking-widest">{result.source}</div>
+                    {result.isViral && (
+                      <span className="bg-tiktok-red/20 text-tiktok-red text-[8px] px-2 py-0.5 rounded-full font-bold animate-pulse">VIRAL</span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold group-hover:text-tiktok-cyan transition-colors">{result.title}</h3>
+                </div>
+                <div className="flex gap-2">
+                  {result.views && (
+                    <div className="bg-white/5 px-3 py-1 rounded-lg text-[10px] font-mono border border-white/5">
+                      {result.views} views
+                    </div>
+                  )}
+                  <a 
+                    href={result.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-all text-muted-foreground hover:text-white"
+                  >
+                    <Share2 size={20} />
+                  </a>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                {result.snippet}
+              </p>
+              <div className="flex justify-between items-center">
+                <a 
+                  href={result.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-tiktok-cyan text-xs font-mono uppercase tracking-widest flex items-center gap-2 hover:underline"
+                >
+                  Ver contenido original <ChevronRight size={14} />
+                </a>
+                <div className="text-[10px] font-mono text-muted-foreground bg-cyber-dark px-3 py-1 rounded border border-cyber-border">
+                  VERIFICADO POR IA
+                </div>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 opacity-30 border-2 border-dashed border-cyber-border rounded-2xl">
+            <TrendingUp size={64} className="mb-4" />
+            <p className="text-xl font-mono">Inicia una búsqueda OSINT para encontrar resultados reales.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LandingHero({ keyword, setKeyword, onRun, loading }: { keyword: string, setKeyword: (k: string) => void, onRun: () => void, loading: boolean }) {
+  return (
+    <div className="relative min-h-[70vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
+      {/* Background Glows */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-tiktok-cyan/10 blur-[120px] rounded-full animate-pulse" />
+      <div className="absolute top-1/3 left-1/4 w-[300px] h-[300px] bg-tiktok-red/5 blur-[100px] rounded-full animate-float" />
+      
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 max-w-4xl"
+      >
+        <div className="inline-block px-4 py-1 rounded-full border border-tiktok-cyan/30 bg-tiktok-cyan/5 text-tiktok-cyan text-[10px] font-mono uppercase tracking-[0.3em] mb-8">
+          Next-Gen Content OSINT
+        </div>
+        <h2 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-none">
+          Domina <span className="text-gradient-cyan">TikTok</span> con <br />
+          <span className="text-gradient-red">Inteligencia Artificial</span>
+        </h2>
+        <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+          TikkyAI analiza miles de videos, hooks y comentarios para entregarte briefs creativos de alto impacto. No adivines, usa datos.
+        </p>
+        
+        <div className="max-w-2xl mx-auto w-full mb-12">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-tiktok-cyan via-white to-tiktok-red rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition duration-1000" />
+            <div className="relative flex items-center bg-cyber-card/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl">
+              <div className="flex-1 relative">
+                <input 
+                  type="text" 
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onRun()}
+                  placeholder="Investigar nicho (ej. Estoicismo)..."
+                  className="w-full bg-transparent border-none px-6 py-4 text-lg focus:outline-none placeholder:text-white/20 font-medium"
+                />
+                <Search className="absolute right-6 top-5 text-white/20" size={20} />
+              </div>
+              <button 
+                onClick={onRun}
+                disabled={loading}
+                className="bg-white text-cyber-black font-black px-8 py-4 rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                {loading ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
+                ANALIZAR
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-4 text-sm font-mono text-muted-foreground">
+          <div className="flex -space-x-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="w-10 h-10 rounded-full border-2 border-cyber-black bg-cyber-card flex items-center justify-center overflow-hidden">
+                <img src={`https://picsum.photos/seed/user${i}/40/40`} alt="" referrerPolicy="no-referrer" />
+              </div>
+            ))}
+          </div>
+          <span>+1,200 creadores analizando</span>
+        </div>
+      </motion.div>
+
+      {/* Feature Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 w-full max-w-5xl relative z-10">
+        <FeatureCard 
+          icon={<Zap className="text-tiktok-cyan" />}
+          title="Hook Extraction"
+          desc="Identifica los primeros 3 segundos que retienen a la audiencia."
+        />
+        <FeatureCard 
+          icon={<TrendingUp className="text-tiktok-red" />}
+          title="OSINT Real-Time"
+          desc="Busca tendencias en foros y redes sociales de forma automatizada."
+        />
+        <FeatureCard 
+          icon={<MessageSquare className="text-tiktok-cyan" />}
+          title="Sentiment Analysis"
+          desc="Entiende qué pregunta tu audiencia y qué les emociona."
+        />
+      </div>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="glass-card p-8 rounded-3xl text-left hover:border-tiktok-cyan/30 transition-all group">
+      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold mb-3">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
     </div>
   );
 }
@@ -223,7 +475,7 @@ function NavItem({ active, onClick, icon, label }: { active: boolean, onClick: (
 function ScraperView({ videos, loading, onSelectVideo }: { videos: Video[], loading: boolean, onSelectVideo: (v: Video) => void }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {[...Array(6)].map((_, i) => (
           <VideoSkeleton key={i} />
         ))}
@@ -231,63 +483,59 @@ function ScraperView({ videos, loading, onSelectVideo }: { videos: Video[], load
     );
   }
 
-  if (videos.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 opacity-30">
-        <Search size={64} className="mb-4" />
-        <p className="text-xl font-mono">Sin datos. Ejecuta el agente para empezar.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {videos.map((video) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {videos.map((video, idx) => (
         <motion.div 
           key={video.id}
-          whileHover={{ y: -5 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.1 }}
+          whileHover={{ y: -8 }}
           onClick={() => onSelectVideo(video)}
-          className="bg-cyber-card border border-cyber-border rounded-2xl overflow-hidden group transition-all hover:border-tiktok-red/50 cursor-pointer"
+          className="glass-card rounded-[2rem] overflow-hidden group transition-all hover:border-tiktok-cyan/30 cursor-pointer glow-cyan"
         >
-          <div className="relative aspect-[4/5] bg-cyber-dark overflow-hidden">
-            <img src={video.thumbnail} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
-            <div className="absolute inset-0 bg-gradient-to-t from-cyber-black via-transparent to-transparent" />
+          <div className="relative aspect-[4/5] overflow-hidden">
+            <img src={video.thumbnail} alt="" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" referrerPolicy="no-referrer" />
+            <div className="absolute inset-0 bg-gradient-to-t from-cyber-black via-cyber-black/20 to-transparent" />
             
-            <div className="absolute top-4 left-4">
-              <div className="bg-cyber-black/80 backdrop-blur-md border border-tiktok-cyan/30 text-tiktok-cyan text-[10px] font-mono px-2 py-1 rounded">
-                HOOK SCORE: {video.hookAnalysis?.score || '??'}/100
+            <div className="absolute top-6 left-6">
+              <div className="bg-cyber-black/60 backdrop-blur-xl border border-white/10 text-tiktok-cyan text-[10px] font-mono px-3 py-1.5 rounded-full uppercase tracking-widest">
+                HOOK: {video.hookAnalysis?.score || '??'}/100
               </div>
             </div>
 
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-6 h-6 rounded-full bg-tiktok-red flex items-center justify-center text-[10px] font-bold">
-                  {video.account[1].toUpperCase()}
+            <div className="absolute bottom-6 left-6 right-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tiktok-red to-tiktok-cyan p-0.5">
+                  <div className="w-full h-full rounded-full bg-cyber-black flex items-center justify-center text-[10px] font-bold">
+                    {video.account[1].toUpperCase()}
+                  </div>
                 </div>
-                <span className="text-xs font-mono text-white/80">{video.account}</span>
+                <span className="text-xs font-mono text-white/60 tracking-wider">@{video.account}</span>
               </div>
-              <h3 className="font-bold text-sm line-clamp-2 leading-tight">
+              <h3 className="text-lg font-bold line-clamp-2 leading-tight group-hover:text-tiktok-cyan transition-colors">
                 "{video.hook}"
               </h3>
             </div>
           </div>
 
-          <div className="p-4 grid grid-cols-3 gap-2 border-t border-cyber-border">
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground uppercase font-mono">Vistas</div>
-              <div className="text-xs font-bold">{formatNumber(video.views)}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground uppercase font-mono">Likes</div>
-              <div className="text-xs font-bold">{formatNumber(video.likes)}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground uppercase font-mono">Eng.</div>
-              <div className="text-xs font-bold text-tiktok-cyan">{video.engagement}%</div>
-            </div>
+          <div className="p-6 grid grid-cols-3 gap-4 border-t border-white/5 bg-white/[0.02]">
+            <StatItem label="Vistas" value={formatNumber(video.views)} />
+            <StatItem label="Likes" value={formatNumber(video.likes)} />
+            <StatItem label="Eng." value={`${video.engagement}%`} highlight />
           </div>
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function StatItem({ label, value, highlight }: { label: string, value: string, highlight?: boolean }) {
+  return (
+    <div className="text-center">
+      <div className="text-[9px] text-muted-foreground uppercase font-mono tracking-widest mb-1">{label}</div>
+      <div className={`text-sm font-bold ${highlight ? 'text-tiktok-cyan' : 'text-white'}`}>{value}</div>
     </div>
   );
 }
@@ -316,17 +564,17 @@ function VideoSkeleton() {
 function AnalisisView({ videos, loading, onSelectVideo }: { videos: Video[], loading: boolean, onSelectVideo: (v: Video) => void }) {
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-cyber-card border border-cyber-border rounded-2xl p-6 flex gap-6 animate-pulse">
-            <div className="w-48 aspect-[4/5] rounded-xl bg-cyber-dark/50 flex-shrink-0" />
-            <div className="flex-1 space-y-4">
-              <div className="h-8 bg-cyber-dark rounded w-1/2" />
-              <div className="grid grid-cols-2 gap-6">
-                <div className="h-16 bg-cyber-dark rounded" />
-                <div className="h-16 bg-cyber-dark rounded" />
+          <div key={i} className="glass-card rounded-3xl p-8 flex gap-8 animate-pulse">
+            <div className="w-56 aspect-[4/5] rounded-2xl bg-cyber-dark/50 flex-shrink-0" />
+            <div className="flex-1 space-y-6">
+              <div className="h-10 bg-cyber-dark rounded-xl w-1/2" />
+              <div className="grid grid-cols-2 gap-8">
+                <div className="h-20 bg-cyber-dark rounded-xl" />
+                <div className="h-20 bg-cyber-dark rounded-xl" />
               </div>
-              <div className="h-20 bg-cyber-dark rounded" />
+              <div className="h-24 bg-cyber-dark rounded-xl" />
             </div>
           </div>
         ))}
@@ -337,44 +585,53 @@ function AnalisisView({ videos, loading, onSelectVideo }: { videos: Video[], loa
   if (videos.length === 0) return <ScraperView videos={[]} loading={false} onSelectVideo={onSelectVideo} />;
 
   return (
-    <div className="space-y-6">
-      {videos.map((video) => (
-        <div key={video.id} className="bg-cyber-card border border-cyber-border rounded-2xl p-6 flex gap-6">
-          <div className="w-48 aspect-[4/5] rounded-xl overflow-hidden flex-shrink-0 border border-cyber-border">
-            <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+    <div className="space-y-8">
+      {videos.map((video, idx) => (
+        <motion.div 
+          key={video.id}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: idx * 0.1 }}
+          className="glass-card rounded-[2.5rem] p-8 flex flex-col md:flex-row gap-10 hover:border-tiktok-cyan/20 transition-all group"
+        >
+          <div className="w-full md:w-64 aspect-[4/5] rounded-3xl overflow-hidden flex-shrink-0 border border-white/5 shadow-2xl">
+            <img src={video.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
           </div>
           
-          <div className="flex-1">
-            <div className="flex justify-between items-start mb-4">
+          <div className="flex-1 py-2">
+            <div className="flex justify-between items-start mb-8">
               <div>
-                <span className="text-[10px] font-mono text-tiktok-red uppercase tracking-widest">Análisis de Hook</span>
-                <h3 className="text-xl font-bold mt-1">"{video.hook}"</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-tiktok-red" />
+                  <span className="text-[10px] font-mono text-tiktok-red uppercase tracking-[0.3em]">Viral Structure Analysis</span>
+                </div>
+                <h3 className="text-3xl font-black tracking-tight leading-tight">"{video.hook}"</h3>
               </div>
               <div className="text-right">
-                <div className="text-4xl font-bold text-tiktok-cyan font-mono">{video.hookAnalysis?.score || '??'}</div>
-                <div className="text-[10px] font-mono text-muted-foreground uppercase">Viral Score</div>
+                <div className="text-6xl font-black text-gradient-cyan font-mono leading-none">{video.hookAnalysis?.score || '??'}</div>
+                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest mt-2">Retention Score</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-cyber-dark rounded-xl p-4 border border-cyber-border">
-                <div className="text-[10px] font-mono text-muted-foreground uppercase mb-2">Tipo de Hook</div>
-                <div className="text-tiktok-red font-bold">{video.hookAnalysis?.type || 'Analizando...'}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white/[0.03] rounded-2xl p-6 border border-white/5 hover:bg-white/[0.05] transition-colors">
+                <div className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest mb-3">Hook Strategy</div>
+                <div className="text-tiktok-red font-bold text-lg">{video.hookAnalysis?.type || 'Analizando...'}</div>
               </div>
-              <div className="bg-cyber-dark rounded-xl p-4 border border-cyber-border">
-                <div className="text-[10px] font-mono text-muted-foreground uppercase mb-2">Elemento Clave</div>
-                <div className="text-tiktok-cyan font-bold">{video.hookAnalysis?.keyElement || 'Analizando...'}</div>
+              <div className="bg-white/[0.03] rounded-2xl p-6 border border-white/5 hover:bg-white/[0.05] transition-colors">
+                <div className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest mb-3">Psychological Trigger</div>
+                <div className="text-tiktok-cyan font-bold text-lg">{video.hookAnalysis?.keyElement || 'Analizando...'}</div>
               </div>
             </div>
 
-            <div className="mt-6">
-              <div className="text-[10px] font-mono text-muted-foreground uppercase mb-2">Explicación Técnica</div>
-              <p className="text-sm text-white/80 leading-relaxed italic">
+            <div className="bg-cyber-dark/40 rounded-2xl p-6 border border-white/5">
+              <div className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest mb-3">IA Commentary</div>
+              <p className="text-base text-white/70 leading-relaxed font-light italic">
                 {video.hookAnalysis?.explanation || 'El motor de IA está procesando la estructura narrativa del video...'}
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );
@@ -393,33 +650,65 @@ function BibleView({ bible }: { bible: BrandBible | null }) {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap gap-2 p-1 bg-cyber-dark/50 border border-cyber-border rounded-xl w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-mono text-xs uppercase tracking-widest transition-all ${
-              activeTab === tab.id 
-                ? 'bg-tiktok-red text-white shadow-lg shadow-tiktok-red/20' 
-                : 'text-muted-foreground hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-12 items-start">
+      {/* Interactive Table of Contents */}
+      <aside className="sticky top-32 space-y-6">
+        <div className="px-4">
+          <div className="text-[10px] font-mono text-tiktok-cyan uppercase tracking-[0.4em] mb-2">Navegación</div>
+          <h2 className="text-xl font-black tracking-tighter uppercase font-mono">Brand Bible</h2>
+        </div>
+        
+        <nav className="space-y-1 p-1 bg-cyber-dark/30 border border-white/5 rounded-2xl">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`w-full flex items-center gap-4 px-6 py-4 rounded-xl font-mono text-xs uppercase tracking-widest transition-all group relative overflow-hidden ${
+                activeTab === tab.id 
+                  ? 'text-cyber-black font-black' 
+                  : 'text-muted-foreground hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {activeTab === tab.id && (
+                <motion.div 
+                  layoutId="activeTabBackground"
+                  className="absolute inset-0 bg-white"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10">{tab.icon}</span>
+              <span className="relative z-10 flex-1 text-left">{tab.label}</span>
+              {activeTab === tab.id && (
+                <motion.div 
+                  initial={{ x: -10, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  className="relative z-10"
+                >
+                  <ChevronRight size={14} />
+                </motion.div>
+              )}
+            </button>
+          ))}
+        </nav>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className="min-h-[400px]"
-        >
+        <div className="px-4 pt-8 border-t border-white/5">
+          <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest mb-4">Brand Status</div>
+          <div className="flex items-center gap-2 text-tiktok-cyan text-[10px] font-bold">
+            <div className="w-1.5 h-1.5 rounded-full bg-tiktok-cyan animate-pulse" />
+            OPTIMIZADA PARA VIRALIDAD
+          </div>
+        </div>
+      </aside>
+
+      <div className="min-h-[600px]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
           {activeTab === 'identidad' && (
             <div className="bg-cyber-card border border-cyber-border rounded-2xl p-10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-tiktok-red/5 blur-[100px] rounded-full -mr-32 -mt-32" />
@@ -514,6 +803,7 @@ function BibleView({ bible }: { bible: BrandBible | null }) {
         </motion.div>
       </AnimatePresence>
     </div>
+  </div>
   );
 }
 
@@ -564,13 +854,19 @@ function BriefsView({ videos, loading, onSelectVideo }: { videos: Video[], loadi
 
           <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="space-y-8">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap size={16} className="text-tiktok-red" />
-                  <span className="text-xs font-mono uppercase tracking-widest">Hook Maestro</span>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap size={16} className="text-tiktok-red" />
+                    <span className="text-xs font-mono uppercase tracking-widest">Hook Maestro</span>
+                  </div>
+                  <div className="bg-cyber-dark p-6 rounded-2xl border border-tiktok-red/30 text-xl font-bold italic">
+                    "{video.brief?.hook}"
+                  </div>
                 </div>
-                <div className="bg-cyber-dark p-6 rounded-2xl border border-tiktok-red/30 text-xl font-bold italic">
-                  "{video.brief?.hook}"
+                <div className="w-32 bg-tiktok-cyan/5 border border-tiktok-cyan/20 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
+                  <div className="text-[8px] font-mono text-tiktok-cyan uppercase mb-1">Funnel Stage</div>
+                  <div className="text-xs font-black text-white">{video.brief?.salesFunnelStage}</div>
                 </div>
               </div>
 
@@ -581,6 +877,20 @@ function BriefsView({ videos, loading, onSelectVideo }: { videos: Video[], loadi
                 </div>
                 <div className="bg-cyber-dark p-6 rounded-2xl border border-cyber-border text-sm leading-loose whitespace-pre-wrap font-mono text-white/80">
                   {video.brief?.script}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Search size={16} className="text-tiktok-cyan" />
+                  <span className="text-xs font-mono uppercase tracking-widest">SEO Keywords</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {video.brief?.seoKeywords.map(k => (
+                    <span key={k} className="text-[10px] bg-tiktok-cyan/10 border border-tiktok-cyan/20 px-3 py-1 rounded-md text-tiktok-cyan">
+                      {k}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>

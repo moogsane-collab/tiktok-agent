@@ -46,4 +46,34 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite linear;
   }
+
+  .glass-card {
+    @apply bg-cyber-card/80 backdrop-blur-xl border border-white/5;
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px rgba(37, 244, 238, 0.15);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 20px rgba(254, 44, 85, 0.15);
+  }
+
+  .text-gradient-cyan {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-tiktok-cyan to-blue-400;
+  }
+
+  .text-gradient-red {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-tiktok-red to-pink-500;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
 }
